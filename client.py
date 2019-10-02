@@ -3,7 +3,7 @@ import socket
 import select
 import time
 
-from cipher import AESCipher
+from cipher import Chacha20Cipher
 
 
 class Client:
@@ -14,7 +14,7 @@ class Client:
         self.server_addr = (host, port)
         self.recv_cb = recv_callback
         self.handshake_cb = handshake_callback
-        self.cipher = AESCipher(secret)
+        self.cipher = Chacha20Cipher(secret)
         self.identification = identification
         self.running = False
 

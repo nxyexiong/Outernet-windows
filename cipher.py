@@ -3,7 +3,7 @@ import hashlib
 import os
 import struct
 from Crypto import Random
-from Crypto.Cipher import AES
+from Crypto.Cipher import AES, ChaCha20
 from Crypto.Util import Padding
 
 class AESCipher:
@@ -47,11 +47,37 @@ class AESCipher:
         return result, dlen
 
 
+class Chacha20Cipher:
+
+    def __init__(self, secret):
+        self.nonce_len = 8
+        self.key = hashlib.sha256(secret).digest()
+
+    def encrypt(self, raw):
+        nonce = Random.new().read(self.nonce_len)
+        cipher = ChaCha20.new(key=self.key, nonce=nonce)
+        return nonce + cipher.encrypt(raw)
+
+    def decrypt(self, enc):
+        nonce = enc[:self.nonce_len]
+        cipher = ChaCha20.new(key=self.key, nonce=nonce)
+        return cipher.decrypt(enc[self.nonce_len:])
+
+
 if __name__ == "__main__":
+    # AES
     cipher = AESCipher(b'test')
     data = os.urandom(12345)
     edata = cipher.encrypt_all(data)
     ddata, dlen = cipher.decrypt_all(edata)
     assert data == ddata
     assert dlen == len(edata)
+
+    # Chacha20
+    cipher = Chacha20Cipher(b'test')
+    data = b'haha'
+    edata = cipher.encrypt(data)
+    ddata = cipher.decrypt(edata)
+    assert data == ddata
+
     print('test ok')
