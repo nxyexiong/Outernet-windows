@@ -28,7 +28,7 @@ class SysHelper:
         # setup interface
         execute("netsh interface ip set address %s static %s %s" % (self.tap_ifname, ipv4_addr, ipv4_netmask))
         execute("netsh interface ipv4 add address name=%s address=%s mask=%s" % (self.tap_ifname, ipv4_addr, ipv4_netmask))
-        execute("netsh interface ipv4 set interface interface=%s forwarding=enable metric=0" % (self.tap_ifname,))
+        execute("netsh interface ipv4 set interface interface=%s forwarding=enable metric=0 mtu=1300" % (self.tap_ifname,))
 
         # add route table
         execute("netsh interface ipv4 add route 0.0.0.0/0 %s %s metric=0" % (self.tap_ifname, ipv4_gateway,))

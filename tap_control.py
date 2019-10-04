@@ -101,7 +101,7 @@ class TAPControl:
         # store params
         self.tuntap = tuntap
         # local variables
-        self.mtu = 1500
+        self.mtu = 1300
         self.overlappedRx = pywintypes.OVERLAPPED()
         self.overlappedRx.hEvent = win32event.CreateEvent(None, 0, 0, None)
         self.rxOffset = self.overlappedRx.Offset
