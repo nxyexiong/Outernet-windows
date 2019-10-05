@@ -120,6 +120,14 @@ class Client:
         traffic['tx'] = self.tx_total
         save_traffic(traffic)
 
+    def clear_traffic(self):
+        self.rx_total = 0
+        self.tx_total = 0
+        traffic = {}
+        traffic['rx'] = self.rx_total
+        traffic['tx'] = self.tx_total
+        save_traffic(traffic)
+
     def wrap_data(self, data):
         data = self.cipher.encrypt(data)
         return data

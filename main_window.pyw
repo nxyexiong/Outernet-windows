@@ -266,9 +266,11 @@ class FrontWindow(QMainWindow):
         self.tray.activated.connect(self.trayEvent)
         self.trayMenu = QMenu(QApplication.desktop())
         self.RestoreAction = QAction('Open', self, triggered=self.show)
+        self.ClearTrafficAction = QAction('Clear traffic info', self, triggered=self.handleClearTraffic)
         self.FixAction = QAction('Fix', self, triggered=self.handleFix)
         self.QuitAction = QAction('Quit', self, triggered=self.onClose)
         self.trayMenu.addAction(self.RestoreAction)
+        self.trayMenu.addAction(self.ClearTrafficAction)
         self.trayMenu.addAction(self.FixAction)
         self.trayMenu.addAction(self.QuitAction)
         self.tray.setContextMenu(self.trayMenu)
@@ -340,6 +342,9 @@ class FrontWindow(QMainWindow):
         reply = QMessageBox.question(self, 'Warning', restart_msg, QMessageBox.Yes, QMessageBox.No)
         if reply == QMessageBox.Yes:
             SysHelper.restart_pc()
+
+    def handleClearTraffic(self):
+        self.mainControl.clear_traffic()
 
     ################## MainControl callbacks ##################
 

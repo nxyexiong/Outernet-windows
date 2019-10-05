@@ -6,7 +6,7 @@ import threading
 from sys_helper import SysHelper
 from tap_control import open_tun_tap, close_tun_tap, TAPControl
 from iface_helper import get_tap_iface
-from config_helper import load_traffic
+from config_helper import load_traffic, save_traffic
 from client import Client
 
 
@@ -68,6 +68,17 @@ class MainControl:
             return self.client.tx_total
         else:
             return self.tx_total_init
+
+    def clear_traffic(self):
+        if self.client:
+            self.client.clear_traffic()
+        else:
+            traffic = {}
+            traffic['rx'] = 0
+            traffic['tx'] = 0
+            save_traffic(traffic)
+        self.rx_total_init = 0
+        self.tx_total_init = 0
 
     def run(self, server_ip, server_port, username, secret):
         self.server_ip = server_ip
