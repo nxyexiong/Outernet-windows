@@ -168,4 +168,4 @@ class TAPControl:
     def close(self):
         self.goOn = False
         while self.read_thread.is_alive():
-            time.sleep(1)
+            time.sleep(0.1)

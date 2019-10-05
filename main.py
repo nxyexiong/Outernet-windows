@@ -6,6 +6,7 @@ import threading
 from sys_helper import SysHelper
 from tap_control import open_tun_tap, close_tun_tap, TAPControl
 from iface_helper import get_tap_iface
+from config_helper import load_traffic
 from client import Client
 
 
@@ -21,6 +22,14 @@ class MainControl:
         self.tuntapset_cb = None
         self.tapcontrolset_cb = None
         self.stop_cb = None
+        # traffic init
+        traffic = load_traffic()
+        if traffic:
+            self.rx_total_init = traffic.get('rx', 0)
+            self.tx_total_init = traffic.get('tx', 0)
+        else:
+            self.rx_total_init = 0
+            self.tx_total_init = 0
 
     def set_connect_cb(self, callback):
         self.connect_cb = callback
@@ -33,6 +42,32 @@ class MainControl:
 
     def set_stop_cb(self, callback):
         self.stop_cb = callback
+
+    def get_rx_rate(self):
+        if self.client:
+            return self.client.rx_rate
+        else:
+            return 0
+
+    def get_tx_rate(self):
+        if self.client:
+            return self.client.tx_rate
+        else:
+            return 0
+
+    def get_rx_total(self):
+        if self.client:
+            self.rx_total_init = self.client.rx_total
+            return self.client.rx_total
+        else:
+            return self.rx_total_init
+
+    def get_tx_total(self):
+        if self.client:
+            self.tx_total_init = self.client.tx_total
+            return self.client.tx_total
+        else:
+            return self.tx_total_init
 
     def run(self, server_ip, server_port, username, secret):
         self.server_ip = server_ip
@@ -54,7 +89,7 @@ class MainControl:
 
         # waiting for client connecting to server
         while not self.tuntap:
-            time.sleep(1)
+            time.sleep(0.1)
             if not self.running:
                 return
         if self.tuntapset_cb is not None:

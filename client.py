@@ -4,6 +4,9 @@ import select
 import time
 
 from cipher import Chacha20Cipher
+from config_helper import load_traffic, save_traffic
+
+TRAFFIC_SAVE_INTERVAL = 60
 
 
 class Client:
@@ -17,6 +20,18 @@ class Client:
         self.cipher = Chacha20Cipher(secret)
         self.identification = identification
         self.running = False
+        # traffic
+        traffic = load_traffic()
+        self.rx_rate = 0
+        self.tx_rate = 0
+        self.rx_tmp = 0
+        self.tx_tmp = 0
+        if traffic:
+            self.rx_total = traffic.get('rx', 0)
+            self.tx_total = traffic.get('tx', 0)
+        else:
+            self.rx_total = 0
+            self.tx_total = 0
 
     def run(self):
         self.running = True
@@ -27,19 +42,26 @@ class Client:
         self.running = True
         self.recv_thread = threading.Thread(target=self.handle_recv)
         self.recv_thread.start()
+        self.traffic_thread = threading.Thread(target=self.handle_traffic)
+        self.traffic_thread.start()
 
     def stop(self):
         self.running = False
         if self.handshake_thread is not None:
             while self.handshake_thread.is_alive():
-                time.sleep(1)
+                time.sleep(0.1)
         if self.recv_thread is not None:
             while self.recv_thread.is_alive():
-                time.sleep(1)
+                time.sleep(0.1)
+        if self.traffic_thread is not None:
+            while self.traffic_thread.is_alive():
+                time.sleep(0.1)
         self.sock.close()
 
     def send(self, data):
-        self.sock.sendto(self.wrap_data(data), self.server_addr)
+        send_data = self.wrap_data(data)
+        self.tx_tmp += len(send_data)
+        self.sock.sendto(send_data, self.server_addr)
 
     def handle_handshake(self):
         send_data = b'\x01' + self.identification
@@ -70,7 +92,33 @@ class Client:
                 continue
             data, _ = self.sock.recvfrom(2048)
             data = self.unwrap_data(data)
+            self.rx_tmp += len(data)
             self.recv_cb(data)
+
+    def handle_traffic(self):
+        tick = 0
+        while self.running:
+            self.rx_rate = self.rx_tmp
+            self.tx_rate = self.tx_tmp
+            self.rx_total += self.rx_tmp
+            self.tx_total += self.tx_tmp
+            self.rx_tmp = 0
+            self.tx_tmp = 0
+
+            if tick % TRAFFIC_SAVE_INTERVAL == 0:
+                traffic = {}
+                traffic['rx'] = self.rx_total
+                traffic['tx'] = self.tx_total
+                save_traffic(traffic)
+
+            time.sleep(1)
+            tick += 1
+
+        # save on stop
+        traffic = {}
+        traffic['rx'] = self.rx_total
+        traffic['tx'] = self.tx_total
+        save_traffic(traffic)
 
     def wrap_data(self, data):
         data = self.cipher.encrypt(data)

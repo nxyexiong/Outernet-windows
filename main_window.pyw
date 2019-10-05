@@ -117,7 +117,7 @@ class FrontWindow(QMainWindow):
         self.setTray()
 
     def initUI(self):
-        self.setGeometry(300, 300, 350, 225)
+        self.setGeometry(300, 300, 350, 333)
         self.setWindowTitle('Outernet')
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
@@ -170,6 +170,26 @@ class FrontWindow(QMainWindow):
         secretLabel.setObjectName('NormalLabel')
         secretLabel.move(30, 131)
 
+        rxRateLabel = QLabel('Down rate', self)
+        rxRateLabel.resize(112, 20)
+        rxRateLabel.setObjectName('NormalLabel')
+        rxRateLabel.move(30, 158)
+
+        txRateLabel = QLabel('Up rate', self)
+        txRateLabel.resize(112, 20)
+        txRateLabel.setObjectName('NormalLabel')
+        txRateLabel.move(30, 185)
+
+        rxTotalLabel = QLabel('Down total', self)
+        rxTotalLabel.resize(112, 20)
+        rxTotalLabel.setObjectName('NormalLabel')
+        rxTotalLabel.move(30, 212)
+
+        txTotalLabel = QLabel('Up total', self)
+        txTotalLabel.resize(112, 20)
+        txTotalLabel.setObjectName('NormalLabel')
+        txTotalLabel.move(30, 239)
+
         self.addrEdit = QLineEdit('', self)
         self.addrEdit.resize(160, 22)
         self.addrEdit.move(160, 49)
@@ -186,10 +206,39 @@ class FrontWindow(QMainWindow):
         self.secretEdit.resize(160, 22)
         self.secretEdit.move(160, 130)
 
+        self.rxRateNumberLabel = QLabel('0.0 MB/s', self)
+        self.rxRateNumberLabel.resize(160, 20)
+        self.rxRateNumberLabel.setAlignment(Qt.AlignRight)
+        self.rxRateNumberLabel.setObjectName('NormalLabel')
+        self.rxRateNumberLabel.move(160, 158)
+
+        self.txRateNumberLabel = QLabel('0.0 MB/s', self)
+        self.txRateNumberLabel.resize(160, 20)
+        self.txRateNumberLabel.setAlignment(Qt.AlignRight)
+        self.txRateNumberLabel.setObjectName('NormalLabel')
+        self.txRateNumberLabel.move(160, 185)
+
+        self.rxTotalNumberLabel = QLabel('0.0 MB', self)
+        self.rxTotalNumberLabel.resize(160, 20)
+        self.rxTotalNumberLabel.setAlignment(Qt.AlignRight)
+        self.rxTotalNumberLabel.setObjectName('NormalLabel')
+        self.rxTotalNumberLabel.move(160, 212)
+
+        self.txTotalNumberLabel = QLabel('0.0 MB', self)
+        self.txTotalNumberLabel.resize(160, 20)
+        self.txTotalNumberLabel.setAlignment(Qt.AlignRight)
+        self.txTotalNumberLabel.setObjectName('NormalLabel')
+        self.txTotalNumberLabel.move(160, 239)
+
         self.toggleConnectBtn = QPushButton("Connect", self)
         self.toggleConnectBtn.clicked.connect(self.toggleConnect)
         self.toggleConnectBtn.resize(290, 25)
-        self.toggleConnectBtn.move(29, 170)
+        self.toggleConnectBtn.move(29, 278)
+
+        # set traffic timer
+        self.trafficTimer = QTimer()
+        self.trafficTimer.timeout.connect(self.handleTraffic)
+        self.trafficTimer.start(1000)
 
         self.show()
 
@@ -217,8 +266,10 @@ class FrontWindow(QMainWindow):
         self.tray.activated.connect(self.trayEvent)
         self.trayMenu = QMenu(QApplication.desktop())
         self.RestoreAction = QAction('Open', self, triggered=self.show)
+        self.FixAction = QAction('Fix', self, triggered=self.handleFix)
         self.QuitAction = QAction('Quit', self, triggered=self.onClose)
         self.trayMenu.addAction(self.RestoreAction)
+        self.trayMenu.addAction(self.FixAction)
         self.trayMenu.addAction(self.QuitAction)
         self.tray.setContextMenu(self.trayMenu)
         self.tray.setToolTip(self.getTooltips())
@@ -268,6 +319,27 @@ class FrontWindow(QMainWindow):
             self.toggleConnectBtn.setText('Stopping...')
             self.toggleConnectBtn.setEnabled(False)
             self.mainControl.stop()
+
+    def handleTraffic(self):
+        rxRate = self.mainControl.get_rx_rate()
+        txRate = self.mainControl.get_tx_rate()
+        rxTotal = self.mainControl.get_rx_total()
+        txTotal = self.mainControl.get_tx_total()
+        rxRate = int((rxRate / (1024 * 1024)) * 10) / 10
+        txRate = int((txRate / (1024 * 1024)) * 10) / 10
+        rxTotal = int((rxTotal / (1024 * 1024)) * 10) / 10
+        txTotal = int((txTotal / (1024 * 1024)) * 10) / 10
+        self.rxRateNumberLabel.setText(str(rxRate) + ' MB/s')
+        self.txRateNumberLabel.setText(str(txRate) + ' MB/s')
+        self.rxTotalNumberLabel.setText(str(rxTotal) + ' MB')
+        self.txTotalNumberLabel.setText(str(txTotal) + ' MB')
+
+    def handleFix(self):
+        SysHelper.fix_netsh()
+        restart_msg = "To fix network, you need to restart the computer. Restart now?"
+        reply = QMessageBox.question(self, 'Warning', restart_msg, QMessageBox.Yes, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            SysHelper.restart_pc()
 
     ################## MainControl callbacks ##################
 

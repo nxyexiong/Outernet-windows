@@ -57,3 +57,9 @@ class SysHelper:
     def uninstall_tap():
         dirname = os.path.abspath(os.path.dirname(sys.argv[0]))
         execute("%s\\tap\\tapinstall.exe remove tap0901" % (dirname,))
+
+    def fix_netsh():
+        execute("netsh winsock reset")
+
+    def restart_pc():
+        execute("shutdown /r")
