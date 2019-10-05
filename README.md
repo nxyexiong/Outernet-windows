@@ -5,6 +5,6 @@ An outernet client for windows.
 ## TODO
 
 1. handle 0 metric interfaces
-2. improve speed
-3. add filter
+2. add filter
+3. speed limit
 
