@@ -2,12 +2,14 @@ import time
 import ctypes
 import hashlib
 import threading
+import socket
 
 from sys_helper import SysHelper
 from tap_control import open_tun_tap, close_tun_tap, TAPControl
 from iface_helper import get_tap_iface
 from config_helper import load_traffic, save_traffic
 from client import Client
+from cipher import Chacha20Cipher
 
 
 class MainControl:
@@ -79,6 +81,23 @@ class MainControl:
             save_traffic(traffic)
         self.rx_total_init = 0
         self.tx_total_init = 0
+
+    def query_traffic_remain(self, server_ip, server_port, username, secret):
+        secret = secret.encode('utf-8')
+        cipher = Chacha20Cipher(secret)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        identification_raw = username.encode('utf-8')
+        identification = hashlib.sha256(identification_raw).digest()
+        send_data = b'\x02' + identification
+        sock.sendto(cipher.encrypt(send_data), (server_ip, server_port))
+        try:
+            sock.settimeout(5)
+            data, _ = sock.recvfrom(2048)
+            data = cipher.decrypt(data)
+            traffic_remain = int.from_bytes(data[1:5], 'big')
+            return traffic_remain
+        except Exception:
+            return None
 
     def run(self, server_ip, server_port, username, secret):
         self.server_ip = server_ip

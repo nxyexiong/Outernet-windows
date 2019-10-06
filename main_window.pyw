@@ -266,10 +266,12 @@ class FrontWindow(QMainWindow):
         self.tray.activated.connect(self.trayEvent)
         self.trayMenu = QMenu(QApplication.desktop())
         self.RestoreAction = QAction('Open', self, triggered=self.show)
+        self.QueryTrafficAction = QAction('Query traffic remain', self, triggered=self.handleQueryTraffic)
         self.ClearTrafficAction = QAction('Clear traffic info', self, triggered=self.handleClearTraffic)
         self.FixAction = QAction('Fix', self, triggered=self.handleFix)
         self.QuitAction = QAction('Quit', self, triggered=self.onClose)
         self.trayMenu.addAction(self.RestoreAction)
+        self.trayMenu.addAction(self.QueryTrafficAction)
         self.trayMenu.addAction(self.ClearTrafficAction)
         self.trayMenu.addAction(self.FixAction)
         self.trayMenu.addAction(self.QuitAction)
@@ -345,6 +347,23 @@ class FrontWindow(QMainWindow):
 
     def handleClearTraffic(self):
         self.mainControl.clear_traffic()
+
+    def handleQueryTraffic(self):
+        server_ip = self.addrEdit.text()
+        server_port = self.portEdit.text()
+        username = self.userEdit.text()
+        secret = self.secretEdit.text()
+        try:
+            server_port = int(server_port)
+        except Exception:
+            return
+        traffic = self.mainControl.query_traffic_remain(server_ip, server_port, username, secret)
+        if traffic is not None:
+            msg = "Traffic remain: %d MB" % (traffic,)
+            QMessageBox.information(self, "info", msg)
+        else:
+            msg = "Query timeout or your client version is too low"
+            QMessageBox.warning(self, "warning", msg)
 
     ################## MainControl callbacks ##################
 
