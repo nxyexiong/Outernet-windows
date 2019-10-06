@@ -360,9 +360,11 @@ class FrontWindow(QMainWindow):
         traffic = self.mainControl.query_traffic_remain(server_ip, server_port, username, secret)
         if traffic is not None:
             msg = "Traffic remain: %d MB" % (traffic,)
+            self.show()
             QMessageBox.information(self, "info", msg)
         else:
             msg = "Query timeout or your client version is too low"
+            self.show()
             QMessageBox.warning(self, "warning", msg)
 
     ################## MainControl callbacks ##################
