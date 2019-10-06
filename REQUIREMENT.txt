@@ -1,3 +1,6 @@
+pyqt5
 pycryptodome
-pyinstaller
+pywin32
+pyyaml
 netifaces
+pyinstaller

@@ -116,6 +116,7 @@ class MainControl:
     def handle_stop(self):
         print("terminating...")
         self.running = False
+        self.sys_hper.uninit_network(self.server_ip)
         if self.tap_control is not None:
             self.tap_control.close()
         if self.client is not None:
@@ -125,7 +126,6 @@ class MainControl:
         self.tap_control = None
         self.tuntap = None
         self.client = None
-        self.sys_hper.uninit_network(self.server_ip)
         print("terminated")
         if self.stop_cb is not None:
             self.stop_cb()
