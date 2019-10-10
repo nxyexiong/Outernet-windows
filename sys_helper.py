@@ -25,7 +25,7 @@ class SysHelper:
         ipv4_netmask = '.'.join([str(item) for item in ipv4_netmask])
 
         # set metric!=0
-        execute("netsh interface ipv4 set route 0.0.0.0/0 %s metric=100" % (self.default_ifname))
+        execute("netsh interface ipv4 set route 0.0.0.0/0 %s metric=100 store=active" % (self.default_ifname))
 
         # setup interface
         execute("netsh interface ip set address %s static %s %s" % (self.tap_ifname, ipv4_addr, ipv4_netmask))
