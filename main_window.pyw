@@ -11,6 +11,7 @@ from iface_helper import get_tap_iface
 from config_helper import load_config, save_config
 
 
+VERSION_CODE = '2.8'
 STYLE_SHEET = '''
 #MainWidget{
     background-color: #312F30;
@@ -146,9 +147,9 @@ class FrontWindow(QMainWindow):
         minBtn.setObjectName('MinButton')
         minBtn.move(32, 14)
 
-        titleLabel = QLabel('Outernet', self)
+        titleLabel = QLabel('Outernet - %s' % (VERSION_CODE,), self)
         titleLabel.setObjectName('TitleLabel')
-        titleLabel.move(147, 4)
+        titleLabel.move(127, 4)
 
         addrLabel = QLabel('Server address', self)
         addrLabel.resize(112, 20)
@@ -191,18 +192,22 @@ class FrontWindow(QMainWindow):
         txTotalLabel.move(30, 239)
 
         self.addrEdit = QLineEdit('', self)
+        self.addrEdit.setAlignment(Qt.AlignRight)
         self.addrEdit.resize(160, 22)
         self.addrEdit.move(160, 49)
 
         self.portEdit = QLineEdit('', self)
+        self.portEdit.setAlignment(Qt.AlignRight)
         self.portEdit.resize(160, 22)
         self.portEdit.move(160, 76)
 
         self.userEdit = QLineEdit('', self)
+        self.userEdit.setAlignment(Qt.AlignRight)
         self.userEdit.resize(160, 22)
         self.userEdit.move(160, 103)
 
         self.secretEdit = QLineEdit('', self)
+        self.secretEdit.setAlignment(Qt.AlignRight)
         self.secretEdit.resize(160, 22)
         self.secretEdit.move(160, 130)
 
@@ -280,12 +285,12 @@ class FrontWindow(QMainWindow):
         self.tray.show()
 
     def getTooltips(self):
-        tooltips = "Outernet"
+        tooltips = 'Outernet - %s' % (VERSION_CODE,)
         if self.connected:
-            tooltips += "(connected)\n"
+            tooltips += "\n(connected)\n"
             tooltips += "Server: " + self.addrEdit.text() + ":" + self.portEdit.text()
         else:
-            tooltips += "(disconnected)"
+            tooltips += "\n(disconnected)"
         return tooltips
 
     def trayEvent(self, reason):

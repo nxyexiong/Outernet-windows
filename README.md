@@ -4,7 +4,6 @@ An outernet client for windows.
 
 ## TODO
 
-1. handle 0 metric interfaces
-2. add filter
-3. speed limit
+1. add filter(psutil, white/black list mode)
+2. speed limit
 
