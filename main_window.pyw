@@ -5,6 +5,7 @@ import time
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
+from filter_window import FilterWindow
 from main import MainControl
 from sys_helper import SysHelper
 from iface_helper import get_tap_iface
@@ -116,6 +117,8 @@ class FrontWindow(QMainWindow):
         self.initUI()
         self.initConfig()
         self.setTray()
+
+        self.filterWindow = FilterWindow()
 
     def initUI(self):
         self.setGeometry(300, 300, 350, 333)
@@ -237,8 +240,14 @@ class FrontWindow(QMainWindow):
 
         self.toggleConnectBtn = QPushButton("Connect", self)
         self.toggleConnectBtn.clicked.connect(self.toggleConnect)
-        self.toggleConnectBtn.resize(290, 25)
+        self.toggleConnectBtn.resize(260, 25)
         self.toggleConnectBtn.move(29, 278)
+
+        self.toggleFilterBtn = QPushButton(self)
+        self.toggleFilterBtn.setIcon(QIcon('res/filter.png'))
+        self.toggleFilterBtn.clicked.connect(self.toggleFilter)
+        self.toggleFilterBtn.resize(25, 25)
+        self.toggleFilterBtn.move(294, 278)
 
         # set traffic timer
         self.trafficTimer = QTimer()
@@ -328,6 +337,9 @@ class FrontWindow(QMainWindow):
             self.toggleConnectBtn.setText('Stopping...')
             self.toggleConnectBtn.setEnabled(False)
             self.mainControl.stop()
+
+    def toggleFilter(self):
+        self.filterWindow.show()
 
     def handleTraffic(self):
         rxRate = self.mainControl.get_rx_rate()
@@ -424,6 +436,8 @@ class FrontWindow(QMainWindow):
 MAIN_WINDOW = None
 
 if __name__ == '__main__':
+    sys.stdout = open('log.log', 'w+')
+
     app = QApplication(sys.argv)
 
     # check privilige

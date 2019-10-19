@@ -7,9 +7,14 @@ import socket
 from sys_helper import SysHelper
 from tap_control import open_tun_tap, close_tun_tap, TAPControl
 from iface_helper import get_tap_iface
-from config_helper import load_traffic, save_traffic
+from config_helper import load_traffic, save_traffic, load_filter
 from client import Client
 from cipher import Chacha20Cipher
+from filter_rule import FilterRule
+
+
+FILTER_BLACK = 0
+FILTER_WHITE = 1
 
 
 class MainControl:
@@ -32,6 +37,8 @@ class MainControl:
         else:
             self.rx_total_init = 0
             self.tx_total_init = 0
+        # filter
+        self.filter = FilterRule(self.sys_hper)
 
     def set_connect_cb(self, callback):
         self.connect_cb = callback
@@ -135,6 +142,7 @@ class MainControl:
     def handle_stop(self):
         print("terminating...")
         self.running = False
+        self.filter.stop()
         if self.tap_control is not None:
             self.tap_control.close()
         if self.client is not None:
@@ -157,8 +165,29 @@ class MainControl:
         ipv4_network = [10, 0, 0, 0]
         ipv4_netmask = [255, 255, 255, 0]
         print("handshaked success with interface ip:", ipv4_addr, "gateway ip:", ipv4_gateway)
-        self.sys_hper.init_network(self.server_ip, ipv4_addr, ipv4_gateway, ipv4_network, ipv4_netmask)
+
+        # preload filter
+        ffilter = load_filter()
+        filter_type = FILTER_BLACK
+        filter_procs = []
+        filter_ips = []
+        if ffilter is not None:
+            ftype = ffilter.get('type')
+            procs = ffilter.get('procs')
+            ips = ffilter.get('ips')
+            if ftype == 'Blacklist':
+                filter_type = FILTER_BLACK
+            elif ftype == 'Whitelist':
+                filter_type = FILTER_WHITE
+            filter_procs = procs.strip().split('\n')
+            filter_ips = ips.strip().split('\n')
+
+        self.sys_hper.init_network(self.server_ip, ipv4_addr, ipv4_gateway, ipv4_network, ipv4_netmask, filter_type)
         self.tuntap = open_tun_tap(ipv4_addr, ipv4_network, ipv4_netmask)
+
+        # start filter
+        self.filter.set_filter(filter_type, filter_procs, filter_ips)
+        self.filter.run()
 
     def client_recv_cb(self, data):
         self.tap_control.write(data)
