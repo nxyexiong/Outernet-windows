@@ -424,6 +424,8 @@ class FrontWindow(QMainWindow):
 MAIN_WINDOW = None
 
 if __name__ == '__main__':
+    sys.stdout = open('log.log', 'w+')
+
     app = QApplication(sys.argv)
 
     # check privilige

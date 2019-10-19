@@ -109,6 +109,7 @@ class TAPControl:
         self.overlappedTx.hEvent = win32event.CreateEvent(None, 0, 0, None)
         self.txOffset = self.overlappedTx.Offset
         self.read_callback = None
+        self.timeout = 100 # 0.1s
         self.goOn = False
 
     def run(self):
@@ -128,7 +129,9 @@ class TAPControl:
             try:
                 # wait for data
                 ret, p = win32file.ReadFile(self.tuntap, rxbuffer, self.overlappedRx)
-                win32event.WaitForSingleObject(self.overlappedRx.hEvent, win32event.INFINITE)
+                while win32event.WaitForSingleObject(self.overlappedRx.hEvent, self.timeout) == win32event.WAIT_TIMEOUT:
+                    if not self.goOn:
+                        return
                 self.rxOffset = self.rxOffset + len(p)
                 self.overlappedRx.Offset = self.rxOffset & 0xffffffff
                 self.overlappedRx.OffsetHigh = self.rxOffset >> 32
@@ -158,7 +161,9 @@ class TAPControl:
         try:
             # write over tuntap interface
             win32file.WriteFile(self.tuntap, data, self.overlappedTx)
-            win32event.WaitForSingleObject(self.overlappedTx.hEvent, win32event.INFINITE)
+            while win32event.WaitForSingleObject(self.overlappedTx.hEvent, self.timeout) == win32event.WAIT_TIMEOUT:
+                if not self.goOn:
+                    return
             self.txOffset = self.txOffset + len(data)
             self.overlappedTx.Offset = self.txOffset & 0xffffffff
             self.overlappedTx.OffsetHigh = self.txOffset >> 32
