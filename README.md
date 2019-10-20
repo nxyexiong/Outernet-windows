@@ -4,6 +4,6 @@ An outernet client for windows.
 
 ## TODO
 
-1. add filter
+1. better filter
 2. speed limit(tap_control)
 
