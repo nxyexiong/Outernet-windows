@@ -3,7 +3,7 @@ import time
 import psutil
 
 
-REFRESH_INTERVAL = 0.05
+REFRESH_INTERVAL = 0.1
 
 class FilterRule:
     def __init__(self, sys_helper):

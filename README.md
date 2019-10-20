@@ -4,6 +4,6 @@ An outernet client for windows.
 
 ## TODO
 
-1. add filter(psutil, white/black list mode)
+1. better filter
 2. speed limit
 

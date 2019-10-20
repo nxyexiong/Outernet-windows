@@ -13,7 +13,7 @@ class FilterWindow(QMainWindow):
 
     def initUI(self):
         self.setFixedSize(350, 333)
-        self.setWindowTitle('Outernet - Filter')
+        self.setWindowTitle('Outernet - Filter(Experimental)')
         self.setWindowIcon(QIcon('res/icon.png'))
 
         filterTypeLabel = QLabel('Filter type', self)
@@ -32,6 +32,7 @@ class FilterWindow(QMainWindow):
         filterProcLabel.move(20, 40)
 
         self.filterProcEdit = QPlainTextEdit(self)
+        self.filterProcEdit.setPlaceholderText("app0.exe\napp1.exe")
         self.filterProcEdit.resize(310, 80)
         self.filterProcEdit.move(20, 70)
 
@@ -41,6 +42,7 @@ class FilterWindow(QMainWindow):
         filterIPLabel.move(20, 155)
 
         self.filterIPEdit = QPlainTextEdit(self)
+        self.filterIPEdit.setPlaceholderText("8.8.8.8/32\n8.8.4.4/32")
         self.filterIPEdit.resize(310, 80)
         self.filterIPEdit.move(20, 185)
 
