@@ -2,6 +2,7 @@ import yaml
 
 CONFIG_FILE = 'config.yaml'
 TRAFFIC_FILE = 'traffic.yaml'
+FILTER_FILE = 'filter.yaml'
 
 
 def load_config():
@@ -38,4 +39,23 @@ def save_traffic(traffic):
         return True
     except Exception:
         print('error writing traffic')
+        return False
+
+
+def load_filter():
+    try:
+        ffilter = yaml.load(open(FILTER_FILE))
+        return ffilter
+    except Exception:
+        print('missing filter file or format incorrect')
+        return None
+
+
+def save_filter(ffilter):
+    try:
+        f = open(FILTER_FILE, 'w+')
+        yaml.dump(ffilter, f)
+        return True
+    except Exception:
+        print('error writing filter file')
         return False
