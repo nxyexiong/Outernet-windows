@@ -1,5 +1,7 @@
 import yaml
 
+from logger import LOGGER
+
 CONFIG_FILE = 'config.yaml'
 TRAFFIC_FILE = 'traffic.yaml'
 FILTER_FILE = 'filter.yaml'
@@ -10,7 +12,7 @@ def load_config():
         config = yaml.load(open(CONFIG_FILE))
         return config
     except Exception:
-        print('missing config file or format incorrect')
+        LOGGER.warning('missing config file or format incorrect')
         return None
 
 
@@ -20,7 +22,7 @@ def save_config(config):
         yaml.dump(config, f)
         return True
     except Exception:
-        print('error writing configuration')
+        LOGGER.warning('error writing configuration')
         return False
 
 def load_traffic():
@@ -28,7 +30,7 @@ def load_traffic():
         traffic = yaml.load(open(TRAFFIC_FILE))
         return traffic
     except Exception:
-        print('missing traffic file or format incorrect')
+        LOGGER.warning('missing traffic file or format incorrect')
         return None
 
 
@@ -38,7 +40,7 @@ def save_traffic(traffic):
         yaml.dump(traffic, f)
         return True
     except Exception:
-        print('error writing traffic')
+        LOGGER.warning('error writing traffic')
         return False
 
 
@@ -47,7 +49,7 @@ def load_filter():
         ffilter = yaml.load(open(FILTER_FILE))
         return ffilter
     except Exception:
-        print('missing filter file or format incorrect')
+        LOGGER.warning('missing filter file or format incorrect')
         return None
 
 
@@ -57,5 +59,5 @@ def save_filter(ffilter):
         yaml.dump(ffilter, f)
         return True
     except Exception:
-        print('error writing filter file')
+        LOGGER.warning('error writing filter file')
         return False

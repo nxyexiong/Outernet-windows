@@ -7,6 +7,7 @@ import threading
 import time
 
 from constants import REG_CONTROL_CLASS, TAP_COMPONENT_ID
+from logger import LOGGER
 
 
 def get_tuntap_ComponentId():
@@ -45,9 +46,10 @@ def open_tun_tap(ipv4_addr, ipv4_network, ipv4_netmask):
         read/write operations.
     '''
 
+    LOGGER.debug("open_tun_tap")
+
     # retrieve the ComponentId from the TUN/TAP interface
     componentId = get_tuntap_ComponentId()
-    print('componentId = {0}'.format(componentId))
 
     # create a win32file for manipulating the TUN/TAP interface
     tuntap = win32file.CreateFile(
@@ -59,7 +61,6 @@ def open_tun_tap(ipv4_addr, ipv4_network, ipv4_netmask):
         win32file.FILE_ATTRIBUTE_SYSTEM | win32file.FILE_FLAG_OVERLAPPED,
         None
     )
-    print('tuntap      = {0}'.format(tuntap.handle))
 
     # have Windows consider the interface now connected
     win32file.DeviceIoControl(
@@ -98,6 +99,7 @@ def close_tun_tap(tuntap):
 
 class TAPControl:
     def __init__(self, tuntap):
+        LOGGER.debug("TAPControl init")
         # store params
         self.tuntap = tuntap
         # local variables
@@ -113,13 +115,14 @@ class TAPControl:
         self.goOn = False
 
     def run(self):
+        LOGGER.debug("TAPControl run")
         self.goOn = True
         self.read_thread = threading.Thread(target=self.handle_read)
         self.read_thread.start()
 
     def handle_read(self):
+        LOGGER.debug("TAPControl handle_read")
         rxbuffer = win32file.AllocateReadBuffer(self.mtu)
-        print("TAPControl: read_callback set to " + str(self.read_callback))
 
         # read
         ret = None
@@ -139,6 +142,8 @@ class TAPControl:
             except Exception:
                 continue
 
+            LOGGER.debug("TAPControl read packet %s" % data)
+
             send_data = None
             if data[0] & 0xf0 == 0x40:  # ipv4
                 # get length
@@ -156,6 +161,7 @@ class TAPControl:
                 self.read_callback(send_data)
 
     def write(self, data):
+        LOGGER.debug("TAPControl write packet %s" % data)
         if not self.goOn:
             return
         try:
@@ -171,6 +177,7 @@ class TAPControl:
             return
 
     def close(self):
+        LOGGER.debug("TAPControl close")
         self.goOn = False
         while self.read_thread.is_alive():
             time.sleep(0.1)

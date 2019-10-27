@@ -13,7 +13,7 @@ class FilterWindow(QMainWindow):
 
     def initUI(self):
         self.setFixedSize(350, 333)
-        self.setWindowTitle('Outernet - Filter(Experimental)')
+        self.setWindowTitle('Outernet - Filter')
         self.setWindowIcon(QIcon('res/icon.png'))
 
         filterTypeLabel = QLabel('Filter type', self)
@@ -26,15 +26,15 @@ class FilterWindow(QMainWindow):
         self.filterTypeCB.resize(120, 20)
         self.filterTypeCB.move(210, 20)
 
-        filterProcLabel = QLabel('Filter processes', self)
-        filterProcLabel.resize(112, 20)
-        filterProcLabel.setObjectName('NormalLabel')
-        filterProcLabel.move(20, 40)
+        filterDomainLabel = QLabel('Filter domains', self)
+        filterDomainLabel.resize(112, 20)
+        filterDomainLabel.setObjectName('NormalLabel')
+        filterDomainLabel.move(20, 40)
 
-        self.filterProcEdit = QPlainTextEdit(self)
-        self.filterProcEdit.setPlaceholderText("app0.exe\napp1.exe")
-        self.filterProcEdit.resize(310, 80)
-        self.filterProcEdit.move(20, 70)
+        self.filterDomainEdit = QPlainTextEdit(self)
+        self.filterDomainEdit.setPlaceholderText("www\\.baidu\\.com\nwww\\.google\\.com")
+        self.filterDomainEdit.resize(310, 80)
+        self.filterDomainEdit.move(20, 70)
 
         filterIPLabel = QLabel('Filter IPs', self)
         filterIPLabel.resize(112, 20)
@@ -63,18 +63,18 @@ class FilterWindow(QMainWindow):
             return
 
         ftype = ffilter.get('type')
-        procs = ffilter.get('procs')
+        domains = ffilter.get('domains')
         ips = ffilter.get('ips')
 
         index = self.filterTypeCB.findText(ftype, Qt.MatchFixedString)
         self.filterTypeCB.setCurrentIndex(index)
-        self.filterProcEdit.setPlainText(procs)
+        self.filterDomainEdit.setPlainText(domains)
         self.filterIPEdit.setPlainText(ips)
 
     def onSaveBtnClicked(self):
         ffilter = {}
         ffilter['type'] = self.filterTypeCB.currentText()
-        ffilter['procs'] = self.filterProcEdit.toPlainText()
+        ffilter['domains'] = self.filterDomainEdit.toPlainText()
         ffilter['ips'] = self.filterIPEdit.toPlainText()
 
         save_filter(ffilter)

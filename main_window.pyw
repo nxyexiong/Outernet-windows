@@ -12,7 +12,7 @@ from iface_helper import get_tap_iface
 from config_helper import load_config, save_config
 
 
-VERSION_CODE = '2.9'
+VERSION_CODE = '2.10'
 STYLE_SHEET = '''
 #MainWidget{
     background-color: #312F30;
@@ -152,7 +152,8 @@ class FrontWindow(QMainWindow):
 
         titleLabel = QLabel('Outernet - %s' % (VERSION_CODE,), self)
         titleLabel.setObjectName('TitleLabel')
-        titleLabel.move(127, 4)
+        titleLabel.adjustSize()
+        titleLabel.move(350 / 2 - titleLabel.width() / 2, 14)#127
 
         addrLabel = QLabel('Server address', self)
         addrLabel.resize(112, 20)
@@ -436,7 +437,7 @@ class FrontWindow(QMainWindow):
 MAIN_WINDOW = None
 
 if __name__ == '__main__':
-    sys.stdout = open('log.log', 'w+')
+    sys.stderr = open('error.log', 'w+')
 
     app = QApplication(sys.argv)
 

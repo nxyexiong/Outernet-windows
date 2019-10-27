@@ -10,15 +10,14 @@ from iface_helper import get_tap_iface
 from config_helper import load_traffic, save_traffic, load_filter
 from client import Client
 from cipher import Chacha20Cipher
-from filter_rule import FilterRule
-
-
-FILTER_BLACK = 0
-FILTER_WHITE = 1
+from filter_rule import FilterRule, FILTER_BLACK, FILTER_WHITE
+from dns_utils import detect_dns_answers
+from logger import LOGGER
 
 
 class MainControl:
     def __init__(self):
+        LOGGER.debug("MainControl init")
         self.tuntap = None
         self.client = None
         self.tap_control = None
@@ -107,20 +106,24 @@ class MainControl:
             return None
 
     def run(self, server_ip, server_port, username, secret):
+        LOGGER.debug("MainControl run")
         self.server_ip = server_ip
         self.server_port = server_port
         identification_raw = username.encode('utf-8')
         self.identification = hashlib.sha256(identification_raw).digest()
         self.secret = secret.encode('utf-8')
         self.running = True
-        self.main_thread = threading.Thread(target=self.loop)
+        self.main_thread = threading.Thread(target=self.handle_start)
         self.main_thread.start()
 
     def stop(self):
+        LOGGER.debug("MainControl stop")
         self.stop_thread = threading.Thread(target=self.handle_stop)
         self.stop_thread.start()
 
-    def loop(self):
+    def handle_start(self):
+        LOGGER.debug("MainControl handle_start")
+        LOGGER.info("MainControl start connecting")
         self.client = Client(self.server_ip, self.server_port, self.identification, self.secret, self.client_recv_cb, self.client_handshake_cb)
         self.client.run()
 
@@ -132,7 +135,6 @@ class MainControl:
         if self.tuntapset_cb is not None:
             self.tuntapset_cb()
 
-        print("start tap control")
         self.tap_control = TAPControl(self.tuntap)
         self.tap_control.read_callback = self.tap_read_cb
         self.tap_control.run()
@@ -140,9 +142,10 @@ class MainControl:
             self.tapcontrolset_cb()
 
     def handle_stop(self):
-        print("terminating...")
+        LOGGER.debug("MainControl handle_stop")
+        LOGGER.info("MainControl stop")
         self.running = False
-        self.filter.stop()
+        self.filter.uninit_filter()
         if self.tap_control is not None:
             self.tap_control.close()
         if self.client is not None:
@@ -153,46 +156,57 @@ class MainControl:
         self.tuntap = None
         self.client = None
         self.sys_hper.uninit_network(self.server_ip)
-        print("terminated")
+        LOGGER.info("MainControl stopped")
         if self.stop_cb is not None:
             self.stop_cb()
 
     def client_handshake_cb(self, gateway_ip, interface_ip):
+        LOGGER.debug("MainControl client_handshake_cb")
         if self.connect_cb is not None:
             self.connect_cb()
         ipv4_addr = list(interface_ip)
         ipv4_gateway = list(gateway_ip)
         ipv4_network = [10, 0, 0, 0]
         ipv4_netmask = [255, 255, 255, 0]
-        print("handshaked success with interface ip:", ipv4_addr, "gateway ip:", ipv4_gateway)
+        LOGGER.info("MainControl handshake success with interface ip: %s, gateway ip: %s" % (ipv4_addr, ipv4_gateway))
+        self.sys_hper.init_network(self.server_ip, ipv4_addr, ipv4_gateway, ipv4_network, ipv4_netmask)
+        self.tuntap = open_tun_tap(ipv4_addr, ipv4_network, ipv4_netmask)
 
-        # preload filter
+        # filter
         ffilter = load_filter()
         filter_type = FILTER_BLACK
-        filter_procs = []
+        filter_domains = []
         filter_ips = []
         if ffilter is not None:
             ftype = ffilter.get('type')
-            procs = ffilter.get('procs')
+            domains = ffilter.get('domains')
             ips = ffilter.get('ips')
             if ftype == 'Blacklist':
                 filter_type = FILTER_BLACK
             elif ftype == 'Whitelist':
                 filter_type = FILTER_WHITE
-            filter_procs = procs.strip().split('\n')
+            filter_domains = domains.strip().split('\n')
             filter_ips = ips.strip().split('\n')
-
-        self.sys_hper.init_network(self.server_ip, ipv4_addr, ipv4_gateway, ipv4_network, ipv4_netmask, filter_type)
-        self.tuntap = open_tun_tap(ipv4_addr, ipv4_network, ipv4_netmask)
-
-        # start filter
-        self.filter.set_filter(filter_type, filter_procs, filter_ips)
-        self.filter.run()
+        LOGGER.info("MainControl filter domains:\n%s\nfilter ips:\n%s" % (filter_domains, filter_ips))
+        self.filter.init_filter(filter_type, filter_domains, filter_ips)
 
     def client_recv_cb(self, data):
+        LOGGER.debug("MainControl client_recv_cb")
+        # dns filter
+        domain_ip_list = detect_dns_answers(data)
+        if domain_ip_list is not None:
+            for item in domain_ip_list:
+                domain_name = item[0]
+                domain_ip = item[1]
+                LOGGER.debug("MainControl dns detected: %s %s" % (domain_name, domain_ip))
+                if self.filter.match_domain(domain_name.decode('utf-8')):
+                    LOGGER.info("MainControl domain matched: %s %s" % (domain_name, domain_ip))
+                    self.filter.hit_ip(domain_ip + '/32')
+
         self.tap_control.write(data)
 
     def tap_read_cb(self, data):
+        LOGGER.debug("MainControl tap_read_cb")
         self.client.send(data)
 
 

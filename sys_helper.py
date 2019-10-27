@@ -23,8 +23,7 @@ class SysHelper:
         self.ipv4_network = None
         self.ipv4_netmask = None
 
-    # mode: 0=blacklist_mode, 1=whitelist_mode
-    def init_network(self, server_addr, ipv4_addr, ipv4_gateway, ipv4_network, ipv4_netmask, mode):
+    def init_network(self, server_addr, ipv4_addr, ipv4_gateway, ipv4_network, ipv4_netmask):
         self.ipv4_addr = '.'.join([str(item) for item in ipv4_addr])
         self.ipv4_gateway = '.'.join([str(item) for item in ipv4_gateway])
         self.ipv4_network = '.'.join([str(item) for item in ipv4_network])
@@ -37,10 +36,6 @@ class SysHelper:
         execute("netsh interface ip set address %s static %s %s" % (self.tap_ifname, self.ipv4_addr, self.ipv4_netmask))
         execute("netsh interface ipv4 add address name=%s address=%s mask=%s" % (self.tap_ifname, self.ipv4_addr, self.ipv4_netmask))
         execute("netsh interface ipv4 set interface interface=%s forwarding=enable metric=0 mtu=1300" % (self.tap_ifname,))
-
-        if mode == 0:
-            # add route table
-            execute("netsh interface ipv4 add route 0.0.0.0/0 %s %s metric=0" % (self.tap_ifname, self.ipv4_gateway,))
 
         # add server address
         execute("netsh interface ipv4 add route %s/32 %s %s metric=0" % (server_addr, self.default_ifname, self.default_ifgateway))
@@ -55,9 +50,6 @@ class SysHelper:
 
         # delete server address
         execute("netsh interface ipv4 delete route %s/32 %s" % (server_addr, self.default_ifname))
-
-        # delete tap route
-        execute("netsh interface ipv4 delete route 0.0.0.0/0 %s" % (self.tap_ifname,))
 
         self.ipv4_addr = None
         self.ipv4_gateway = None
