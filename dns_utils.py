@@ -1,4 +1,5 @@
 from logger import LOGGER
+from dnslib import DNSRecord
 
 
 def detect_dns_answers(packet):
@@ -33,71 +34,32 @@ def detect_dns_answers_internal(packet):
     # get actual data
     data = packet[header_len + 8:]
 
-    # get count
-    qdcount = data[4] * 256 + data[5]
-    ancount = data[6] * 256 + data[7]
+    # get dns record
+    record = DNSRecord.parse(data)
 
-    # get answer offset
-    anoffset = 12 + qdcount * 6
-    for _ in range(qdcount):
-        while data[anoffset] != 0:
-            anoffset += 1
-        anoffset += 5
+    # get question
+    #question_name = b'.'.join(record.get_q().get_qname().label)
+    questions = record.questions
 
-    # handle answers
+    # get answers
     answers = []
-    recmap = {}
-    for _ in range(ancount):
-        name, nlen = read_domain_name(data, anoffset, -1)
-        anoffset += nlen
-        atype = data[anoffset + 1]
-        aclass = data[anoffset + 3]
-        ardlen = data[anoffset + 8] * 256 + data[anoffset + 9]
-        if atype == 1 and aclass == 1 and ardlen == 4:
-            addr = str(data[anoffset + 10]) + '.' + \
-                   str(data[anoffset + 11]) + '.' + \
-                   str(data[anoffset + 12]) + '.' + \
-                   str(data[anoffset + 13])
-            while recmap.get(name) is not None:
-                name = recmap.get(name)
-            answers.append((name, addr))
-        elif atype == 5 and aclass == 1:
-            cname, nlen = read_domain_name(data, anoffset + 10, anoffset + 10 + ardlen)
-            recmap[cname] = name
-        anoffset += 10 + ardlen
+    for item in questions:
+        answers += dns_get_answers(item.get_qname().label, item.get_qname().label, record)
+
     return answers
 
 
-def read_domain_name(data, offset, end):
-    if end != -1 and offset >= end:
-        return b'', 0
-    name = b''
-    length = 0
-    if data[offset] & 0xC0 == 0xC0:
-        tmpaddr = (data[offset] & 0x3F) * 256 + data[offset + 1]
-        subname, sublen = read_domain_name(data, tmpaddr, end)
-        name += subname
-        length = 2
-    else:
-        while data[offset] != 0:
-            if data[offset] & 0xC0 == 0xC0:
-                tmpaddr = (data[offset] & 0x3F) * 256 + data[offset + 1]
-                subname, sublen = read_domain_name(data, tmpaddr, end)
-                if name != b'':
-                    name += b'.'
-                    length += 1
-                name += subname
-                length += 2
-                break
-            label_len = data[offset]
-            if name != b'':
-                name += b'.'
-                length += 1
-            name += data[offset + 1:offset + 1 + label_len]
-            offset += label_len + 1
-            length += label_len
-
-    return name, length
+def dns_get_answers(qname_label, name_label, record):
+    rdatas = record.rr
+    next_names = []
+    for item in rdatas:
+        if item.get_rname().label == name_label:
+            if item.rtype != 1:
+                next_names += dns_get_answers(qname_label, item.rdata.label.label, record)
+            else:
+                output_name = b'.'.join(qname_label)
+                next_names.append((output_name, str(item.rdata)))
+    return next_names
 
 
 if __name__ == "__main__":

@@ -5,3 +5,4 @@ pyyaml
 netifaces
 pyinstaller
 psutil
+dnslib
