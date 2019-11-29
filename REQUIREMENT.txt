@@ -6,3 +6,4 @@ netifaces
 pyinstaller
 psutil
 dnslib
+dnspython

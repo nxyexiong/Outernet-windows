@@ -6,6 +6,7 @@ import pywintypes
 import threading
 import time
 
+from queue import Queue
 from constants import REG_CONTROL_CLASS, TAP_COMPONENT_ID
 from logger import LOGGER
 
@@ -111,7 +112,8 @@ class TAPControl:
         self.overlappedTx.hEvent = win32event.CreateEvent(None, 0, 0, None)
         self.txOffset = self.overlappedTx.Offset
         self.read_callback = None
-        self.timeout = 100 # 0.1s
+        self.write_queue = Queue()
+        self.timeout = 100  # 0.1s
         self.goOn = False
 
     def run(self):
@@ -119,6 +121,8 @@ class TAPControl:
         self.goOn = True
         self.read_thread = threading.Thread(target=self.handle_read)
         self.read_thread.start()
+        self.write_thread = threading.Thread(target=self.handle_write)
+        self.write_thread.start()
 
     def handle_read(self):
         LOGGER.debug("TAPControl handle_read")
@@ -164,20 +168,31 @@ class TAPControl:
         LOGGER.debug("TAPControl write packet %s" % data)
         if not self.goOn:
             return
-        try:
-            # write over tuntap interface
-            win32file.WriteFile(self.tuntap, data, self.overlappedTx)
-            while win32event.WaitForSingleObject(self.overlappedTx.hEvent, self.timeout) == win32event.WAIT_TIMEOUT:
-                if not self.goOn:
-                    return
-            self.txOffset = self.txOffset + len(data)
-            self.overlappedTx.Offset = self.txOffset & 0xffffffff
-            self.overlappedTx.OffsetHigh = self.txOffset >> 32
-        except Exception:
-            return
+        self.write_queue.put(data)
+
+    def handle_write(self):
+        while self.goOn:
+            try:
+                data = self.write_queue.get(timeout=0.001)
+            except Exception:
+                continue
+
+            try:
+                # write over tuntap interface
+                win32file.WriteFile(self.tuntap, data, self.overlappedTx)
+                while win32event.WaitForSingleObject(self.overlappedTx.hEvent, self.timeout) == win32event.WAIT_TIMEOUT:
+                    if not self.goOn:
+                        return
+                self.txOffset = self.txOffset + len(data)
+                self.overlappedTx.Offset = self.txOffset & 0xffffffff
+                self.overlappedTx.OffsetHigh = self.txOffset >> 32
+            except Exception:
+                continue
 
     def close(self):
         LOGGER.debug("TAPControl close")
         self.goOn = False
         while self.read_thread.is_alive():
+            time.sleep(0.1)
+        while self.write_thread.is_alive():
             time.sleep(0.1)

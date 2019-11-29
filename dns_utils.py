@@ -16,10 +16,15 @@ def checksum(data):
 
 
 def query_dns_with_servers(name, servers):
-    d = dnsr.Resolver(configure=False)
-    d.nameservers = servers
-    ans = d.query(name, 'A')
-    return [x.address for x in ans]
+    try:
+        d = dnsr.Resolver(configure=False)
+        d.nameservers = servers
+        d.timeout = 1
+        d.lifetime = 1
+        ans = d.query(name, 'A')
+        return [x.address for x in ans]
+    except Exception:
+        return []
 
 
 def re_resolve_dns(packet, dnsservers):
