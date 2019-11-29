@@ -12,6 +12,7 @@ class FilterRule:
         self.sys_helper = sys_helper
         self.mode = None
         self.domains = None
+        self.match_cache = {}
         self.ips = None
         self.iptable_cache = set()
         self.inited = False
@@ -22,6 +23,7 @@ class FilterRule:
             return
         self.mode = mode
         self.domains = domainlist
+        self.match_cache = {}
         self.ips = iplist
         self.clear_iptable()
 
@@ -52,9 +54,14 @@ class FilterRule:
     def match_domain(self, domain):
         if not self.inited:
             return False
+        if domain in self.match_cache:
+            return self.match_cache.get(domain)
         for item in self.domains:
             if re.fullmatch(item, domain):
+                self.match_cache[domain] = True
                 return True
+        self.match_cache[domain] = False
+        return False
 
     def hit_ip(self, hitip):
         if not self.inited:

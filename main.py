@@ -193,15 +193,13 @@ class MainControl:
     def client_recv_cb(self, data):
         LOGGER.debug("MainControl client_recv_cb")
         # dns filter
-        domain_ip_list = detect_dns_answers(data)
-        if domain_ip_list is not None:
-            for item in domain_ip_list:
-                domain_name = item[0]
-                domain_ip = item[1]
-                LOGGER.debug("MainControl dns detected: %s %s" % (domain_name, domain_ip))
-                if self.filter.match_domain(domain_name.decode('utf-8')):
-                    LOGGER.info("MainControl domain matched: %s %s" % (domain_name, domain_ip))
-                    self.filter.hit_ip(domain_ip + '/32')
+        domain_ip_map = detect_dns_answers(data)
+        if domain_ip_map is not None:
+            for domain_name, domain_ips in domain_ip_map.items():
+                if self.filter.match_domain(domain_name.decode('utf-8')) > 0:
+                    LOGGER.info("MainControl domain matched: %s %s" % (domain_name, domain_ips))
+                    for item in domain_ips:
+                        self.filter.hit_ip(item + '/32')
 
         self.tap_control.write(data)
 
