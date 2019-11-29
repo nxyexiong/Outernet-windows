@@ -1,10 +1,10 @@
-import threading
-import time
 import re
 
 FILTER_BLACK = 0
 FILTER_WHITE = 1
 IP_ROUTE_ALL = "0.0.0.0/0"
+DEFAULT_DIRECT_DNS_SERVER_IP = "114.114.114.114"
+DEFAULT_DIRECT_DNS_SERVER = "114.114.114.114/32"
 
 
 class FilterRule:
@@ -15,6 +15,7 @@ class FilterRule:
         self.match_cache = {}
         self.ips = None
         self.iptable_cache = set()
+        self.default_dns_server = DEFAULT_DIRECT_DNS_SERVER_IP
         self.inited = False
 
     # dont call this while running
@@ -29,6 +30,7 @@ class FilterRule:
 
         if self.mode == FILTER_BLACK:
             self.sys_helper.add_route_white(IP_ROUTE_ALL)
+            self.sys_helper.add_route_black(DEFAULT_DIRECT_DNS_SERVER)
             for item in self.ips:
                 self.sys_helper.add_route_black(item)
                 self.iptable_cache.add(item)
@@ -45,6 +47,7 @@ class FilterRule:
         self.inited = False
 
         if self.mode == FILTER_BLACK:
+            self.sys_helper.del_route_black(DEFAULT_DIRECT_DNS_SERVER)
             self.sys_helper.del_route_white(IP_ROUTE_ALL)
         self.clear_iptable()
         self.domains = None

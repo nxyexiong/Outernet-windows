@@ -1,35 +1,30 @@
-from logger import LOGGER
+import dnslib
+import dns.resolver as dnsr
+
 from dnslib import DNSRecord
 
 
-def detect_dns_answers(packet):
-    try:
-        return detect_dns_answers_internal(packet)
-    except Exception:
-        LOGGER.error("unable to extract dns info: %s" % packet)
-        return None
+def checksum(data):
+    length = len(data)
+    if length % 2 == 1:
+        data += b'\x00'
+    s = 0
+    for i in range(0, len(data), 2):
+        s += data[i] * 256 + data[i + 1]
+        s = (s & 0xffff) + (s >> 16)
+    return ~s & 0xffff
 
 
-def detect_dns_answers_internal(packet):
-    # is ipv4
-    if packet[0] & 0xf0 != 0x40:
-        return None
+def query_dns_with_servers(name, servers):
+    d = dnsr.Resolver(configure=False)
+    d.nameservers = servers
+    ans = d.query(name, 'A')
+    return [x.address for x in ans]
 
-    # ip header min length
-    if len(packet) < 20:
-        return None
 
-    # is udp
-    if packet[9] != 17:
-        return None
-
+def re_resolve_dns(packet, dnsservers):
     # get ipv4 header length
     header_len = (packet[0] & 0x0f) * 4
-
-    # is port 53
-    port = packet[header_len] * 256 + packet[header_len + 1]
-    if port != 53:
-        return None
 
     # get actual data
     data = packet[header_len + 8:]
@@ -38,7 +33,105 @@ def detect_dns_answers_internal(packet):
     record = DNSRecord.parse(data)
 
     # get question
-    #question_name = b'.'.join(record.get_q().get_qname().label)
+    questions = record.questions
+
+    # remove answers
+    while record.a.rdata is not None:
+        record.rr.remove(record.a)
+
+    for question in questions:
+        name = b'.'.join(record.q.get_qname().label).decode()
+        ips = query_dns_with_servers(name, dnsservers)
+        for aip in ips:
+            record.add_answer(dnslib.RR(name, dnslib.QTYPE.A, rdata=dnslib.A(aip)))
+
+    # repack
+    data = record.pack()
+    packet = packet[:header_len + 8] + data
+
+    # udp length
+    length = len(packet) - header_len
+    packet = packet[:header_len + 4] + bytes([length >> 8, length % 256]) + packet[header_len + 6:]
+
+    # packet length
+    length = len(packet)
+    packet = packet[:2] + bytes([length >> 8, length % 256]) + packet[4:]
+
+    # udp checksum
+    packet = packet[:header_len + 6] + b'\x00\x00' + packet[header_len + 8:]
+    chkdata = packet[12:20] + b'\x00\x11' + packet[header_len + 4:header_len + 6] + packet[header_len:]
+    chksum = checksum(chkdata)
+    chksum_raw = bytes([chksum >> 8, chksum % 256])
+    packet = packet[:header_len + 6] + chksum_raw + packet[header_len + 8:]
+
+    # ip checksum
+    packet = packet[:10] + b'\x00\x00' + packet[12:]
+    chksum = checksum(packet[:header_len])
+    chksum_raw = bytes([chksum >> 8, chksum % 256])
+    packet = packet[:10] + chksum_raw + packet[12:]
+
+    # get ips
+    answers = detect_dns_answers(packet)
+
+    return packet, answers
+
+
+def is_dns_packet(packet):
+    # is ipv4
+    if packet[0] & 0xf0 != 0x40:
+        return False
+
+    # ip header min length
+    if len(packet) < 20:
+        return False
+
+    # is udp
+    if packet[9] != 17:
+        return False
+
+    # get ipv4 header length
+    header_len = (packet[0] & 0x0f) * 4
+
+    # is port 53
+    port = packet[header_len] * 256 + packet[header_len + 1]
+    if port != 53:
+        return False
+
+    return True
+
+
+def get_dns_qnames(packet):
+    # get ipv4 header length
+    header_len = (packet[0] & 0x0f) * 4
+
+    # get actual data
+    data = packet[header_len + 8:]
+
+    # get dns record
+    record = DNSRecord.parse(data)
+
+    # get question
+    questions = record.questions
+
+    # qnames
+    qnames = []
+    for item in questions:
+        qnames.append(b'.'.join(item.get_qname().label))
+
+    return qnames
+
+
+def detect_dns_answers(packet):
+    # get ipv4 header length
+    header_len = (packet[0] & 0x0f) * 4
+
+    # get actual data
+    data = packet[header_len + 8:]
+
+    # get dns record
+    record = DNSRecord.parse(data)
+
+    # get question
     questions = record.questions
 
     # get answers
@@ -65,9 +158,8 @@ def dns_get_answers(qname_label, name_label, record):
 if __name__ == "__main__":
     data_hex = '4568011db27d00007a1172d5080808080a0000060035fbd301099b93000481800001000a0000000003617069056970696679036f72670000010001c00c0005000100000e02001c0c6e6167616e6f2d3139353939096865726f6b7573736c03636f6d00c02b0005000100000ad4002e13656c623039373330372d3933343932343933320975732d656173742d3103656c6209616d617a6f6e617773c042c053000100010000003a00041717e55ec053000100010000003a000417175399c053000100010000003a00041717f39ac053000100010000003a000436f393e2c053000100010000003a0004ae81c7e8c053000100010000003a000436e15c40c053000100010000003a000436ebbbf8c053000100010000003a00041717497c'
     data = bytearray.fromhex(data_hex)
-    import time
-    start_time = time.time()
-    ans = detect_dns_answers_internal(data)
-    end_time = time.time()
+    ans = detect_dns_answers(data)
     print(ans)
-    print(end_time - start_time)
+
+    rdata = re_resolve_dns(data, ['114.114.114.114'])
+    print(rdata)

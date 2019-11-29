@@ -11,7 +11,8 @@ from config_helper import load_traffic, save_traffic, load_filter
 from client import Client
 from cipher import Chacha20Cipher
 from filter_rule import FilterRule, FILTER_BLACK, FILTER_WHITE
-from dns_utils import detect_dns_answers
+from direct_dns import DirectDNS
+from dns_utils import is_dns_packet, get_dns_qnames
 from logger import LOGGER
 
 
@@ -38,6 +39,8 @@ class MainControl:
             self.tx_total_init = 0
         # filter
         self.filter = FilterRule(self.sys_hper)
+        # direct dns
+        self.direct_dns = DirectDNS(self.filter, self.dns_recv_callback)
 
     def set_connect_cb(self, callback):
         self.connect_cb = callback
@@ -135,6 +138,9 @@ class MainControl:
         if self.tuntapset_cb is not None:
             self.tuntapset_cb()
 
+        # dns
+        self.direct_dns.run()
+
         self.tap_control = TAPControl(self.tuntap)
         self.tap_control.read_callback = self.tap_read_cb
         self.tap_control.run()
@@ -152,6 +158,8 @@ class MainControl:
             self.client.stop()
         if self.tuntap is not None:
             close_tun_tap(self.tuntap)
+        if self.direct_dns is not None:
+            self.direct_dns.stop()
         self.tap_control = None
         self.tuntap = None
         self.client = None
@@ -192,20 +200,25 @@ class MainControl:
 
     def client_recv_cb(self, data):
         LOGGER.debug("MainControl client_recv_cb")
+
         # dns filter
-        domain_ip_map = detect_dns_answers(data)
-        if domain_ip_map is not None:
-            for domain_name, domain_ips in domain_ip_map.items():
-                if self.filter.match_domain(domain_name.decode('utf-8')) > 0:
-                    LOGGER.info("MainControl domain matched: %s %s" % (domain_name, domain_ips))
-                    for item in domain_ips:
-                        self.filter.hit_ip(item + '/32')
+        if is_dns_packet(data):
+            qnames = get_dns_qnames(data)
+            for qname in qnames:
+                if self.filter.match_domain(qname.decode()):
+                    LOGGER.info("MainControl domain matched: %s" % qname)
+                    self.direct_dns.resolve(data)
+                    return
 
         self.tap_control.write(data)
 
     def tap_read_cb(self, data):
         LOGGER.debug("MainControl tap_read_cb")
         self.client.send(data)
+
+    def dns_recv_callback(self, data):
+        LOGGER.debug("MainControl dns_recv_callback")
+        self.tap_control.write(data)
 
 
 if __name__ == '__main__':
