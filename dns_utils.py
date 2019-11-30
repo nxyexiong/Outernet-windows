@@ -27,7 +27,7 @@ def query_dns_with_servers(name, servers):
         return []
 
 
-def re_resolve_dns(packet, dnsservers):
+def re_resolve_dns(packet, dnsservers, is_request):
     # get ipv4 header length
     header_len = (packet[0] & 0x0f) * 4
 
@@ -50,6 +50,11 @@ def re_resolve_dns(packet, dnsservers):
         for aip in ips:
             record.add_answer(dnslib.RR(name, dnslib.QTYPE.A, rdata=dnslib.A(aip)))
 
+    # set response
+    record.header.set_qr(1)
+    record.header.set_aa(1)
+    record.header.set_ra(1)
+
     # repack
     data = record.pack()
     packet = packet[:header_len + 8] + data
@@ -61,6 +66,15 @@ def re_resolve_dns(packet, dnsservers):
     # packet length
     length = len(packet)
     packet = packet[:2] + bytes([length >> 8, length % 256]) + packet[4:]
+
+    # switch addr
+    if is_request:
+        tmp = packet[12:16]
+        packet = packet[:12] + packet[16:20] + packet[16:]
+        packet = packet[:16] + tmp + packet[20:]
+        tmp = packet[header_len:header_len + 2]
+        packet = packet[:header_len] + packet[header_len + 2:header_len + 4] + packet[header_len + 2:]
+        packet = packet[:header_len + 2] + tmp + packet[header_len + 4:]
 
     # udp checksum
     packet = packet[:header_len + 6] + b'\x00\x00' + packet[header_len + 8:]
@@ -82,24 +96,38 @@ def re_resolve_dns(packet, dnsservers):
 
 
 def is_dns_packet(packet):
-    # is ipv4
-    if packet[0] & 0xf0 != 0x40:
-        return False
+    try:
+        # is ipv4
+        if packet[0] & 0xf0 != 0x40:
+            return False
 
-    # ip header min length
-    if len(packet) < 20:
-        return False
+        # ip header min length
+        if len(packet) < 20:
+            return False
 
-    # is udp
-    if packet[9] != 17:
-        return False
+        # is udp
+        if packet[9] != 17:
+            return False
 
-    # get ipv4 header length
-    header_len = (packet[0] & 0x0f) * 4
+        # get ipv4 header length
+        header_len = (packet[0] & 0x0f) * 4
 
-    # is port 53
-    port = packet[header_len] * 256 + packet[header_len + 1]
-    if port != 53:
+        # udp header min length
+        if len(packet) < header_len + 8:
+            return False
+
+        # is port 53
+        src_port = packet[header_len] * 256 + packet[header_len + 1]
+        dst_port = packet[header_len + 2] * 256 + packet[header_len + 3]
+        if src_port != 53 and dst_port != 53:
+            return False
+
+        # get actual data
+        data = packet[header_len + 8:]
+
+        # try parse
+        DNSRecord.parse(data)
+    except Exception:
         return False
 
     return True
@@ -166,5 +194,9 @@ if __name__ == "__main__":
     ans = detect_dns_answers(data)
     print(ans)
 
-    rdata = re_resolve_dns(data, ['114.114.114.114'])
+    rdata = re_resolve_dns(data, ['114.114.114.114'], False)
+    print(rdata)
+
+    req_data = b'\x45\x00\x00\x3d\x0a\x3b\x00\x00\x80\x11\x16\x64\x0a\x00\x00\x02\x08\x08\x08\x08\xf4\x4f\x00\x35\x00\x29\xdb\xe9\xdb\xcc\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03\x70\x75\x62\x07\x69\x64\x71\x71\x69\x6d\x67\x03\x63\x6f\x6d\x00\x00\x01\x00\x01'
+    rdata = re_resolve_dns(req_data, ['114.114.114.114'], True)
     print(rdata)

@@ -22,7 +22,7 @@ class FilterWindow(QMainWindow):
         filterTypeLabel.move(20, 20)
 
         self.filterTypeCB = QComboBox(self)
-        self.filterTypeCB.addItems(['Blacklist'])  # ['Blacklist', 'Whitelist']
+        self.filterTypeCB.addItems(['Blacklist'])
         self.filterTypeCB.resize(120, 20)
         self.filterTypeCB.move(210, 20)
 

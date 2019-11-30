@@ -11,7 +11,7 @@ from config_helper import load_traffic, save_traffic, load_filter
 from client import Client
 from cipher import Chacha20Cipher
 from filter_rule import FilterRule, FILTER_BLACK, FILTER_WHITE
-from direct_dns import DirectDNS
+from dns_server import DNSServer
 from dns_utils import is_dns_packet, get_dns_qnames
 from logger import LOGGER
 
@@ -40,7 +40,7 @@ class MainControl:
         # filter
         self.filter = FilterRule(self.sys_hper)
         # direct dns
-        self.direct_dns = DirectDNS(self.filter, self.dns_recv_callback)
+        self.dns_server = DNSServer(self.filter, self.dns_recv_callback)
 
     def set_connect_cb(self, callback):
         self.connect_cb = callback
@@ -139,7 +139,7 @@ class MainControl:
             self.tuntapset_cb()
 
         # dns
-        self.direct_dns.run()
+        self.dns_server.run()
 
         self.tap_control = TAPControl(self.tuntap)
         self.tap_control.read_callback = self.tap_read_cb
@@ -158,8 +158,8 @@ class MainControl:
             self.client.stop()
         if self.tuntap is not None:
             close_tun_tap(self.tuntap)
-        if self.direct_dns is not None:
-            self.direct_dns.stop()
+        if self.dns_server is not None:
+            self.dns_server.stop()
         self.tap_control = None
         self.tuntap = None
         self.client = None
@@ -200,20 +200,21 @@ class MainControl:
 
     def client_recv_cb(self, data):
         LOGGER.debug("MainControl client_recv_cb")
-
-        # dns filter
-        if is_dns_packet(data):
-            qnames = get_dns_qnames(data)
-            for qname in qnames:
-                if self.filter.match_domain(qname.decode()):
-                    LOGGER.info("MainControl domain matched: %s" % qname)
-                    self.direct_dns.resolve(data)
-                    return
-
         self.tap_control.write(data)
 
     def tap_read_cb(self, data):
         LOGGER.debug("MainControl tap_read_cb")
+
+        # dns filter
+        if is_dns_packet(data):
+            LOGGER.debug("MainControl read dns packet")
+            qnames = get_dns_qnames(data)
+            for qname in qnames:
+                if self.filter.match_domain(qname.decode()):
+                    LOGGER.info("DNSServer domain matched: %s" % qname)
+                    self.dns_server.resolve(data)
+                    return
+
         self.client.send(data)
 
     def dns_recv_callback(self, data):
