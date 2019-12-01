@@ -151,7 +151,6 @@ class MainControl:
         LOGGER.debug("MainControl handle_stop")
         LOGGER.info("MainControl stop")
         self.running = False
-        self.filter.uninit_filter()
         if self.tap_control is not None:
             self.tap_control.close()
         if self.client is not None:
@@ -160,6 +159,7 @@ class MainControl:
             close_tun_tap(self.tuntap)
         if self.dns_server is not None:
             self.dns_server.stop()
+        self.filter.uninit_filter()
         self.tap_control = None
         self.tuntap = None
         self.client = None

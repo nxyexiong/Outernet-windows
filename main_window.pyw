@@ -12,7 +12,7 @@ from iface_helper import get_tap_iface
 from config_helper import load_config, save_config
 
 
-VERSION_CODE = '2.12'
+VERSION_CODE = '2.13'
 STYLE_SHEET = '''
 #MainWidget{
     background-color: #312F30;
