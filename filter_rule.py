@@ -1,3 +1,4 @@
+from logger import LOGGER
 import re
 
 FILTER_BLACK = 0
@@ -42,6 +43,7 @@ class FilterRule:
         self.inited = True
 
     def uninit_filter(self):
+        LOGGER.info("FilterRule uninit_filter")
         if not self.inited:
             return
         self.inited = False

@@ -3,11 +3,13 @@ import sys
 import subprocess
 
 from iface_helper import get_default_iface, get_iface_gateway_ipv4, get_iface_name, get_tap_iface
+from logger import LOGGER
 
 
 def execute(cmd):
     CREATE_NO_WINDOW = 0x08000000
-    subprocess.call(cmd, creationflags=CREATE_NO_WINDOW)
+    ret = subprocess.call(cmd, creationflags=CREATE_NO_WINDOW)
+    LOGGER.info("system execute '%s' ret: %d" % (cmd, ret))
 
 
 class SysHelper:
@@ -41,8 +43,8 @@ class SysHelper:
         execute("netsh interface ipv4 add route %s/32 %s %s metric=0" % (server_addr, self.default_ifname, self.default_ifgateway))
 
         # setup dns server
-        execute("netsh interface ipv4 set dnsserver %s address=8.8.8.8 index=0" % (self.tap_ifname,))
-        execute("netsh interface ipv4 add dnsserver %s address=8.8.4.4 index=2" % (self.tap_ifname,))
+        execute("netsh interface ipv4 set dns name=%s static 8.8.8.8" % (self.tap_ifname,))
+        execute("netsh interface ipv4 set dns name=%s static 8.8.4.4 index=2" % (self.tap_ifname,))
 
     def uninit_network(self, server_addr):
         # recover interface metric

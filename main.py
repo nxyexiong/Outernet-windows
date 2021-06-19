@@ -2,14 +2,12 @@ import time
 import ctypes
 import hashlib
 import threading
-import socket
 
 from sys_helper import SysHelper
 from tap_control import open_tun_tap, close_tun_tap, TAPControl
 from iface_helper import get_tap_iface
 from config_helper import load_traffic, save_traffic, load_filter
 from client import Client
-from cipher import Chacha20Cipher
 from filter_rule import FilterRule, FILTER_BLACK, FILTER_WHITE
 from dns_server import DNSServer
 from dns_utils import is_dns_packet, get_dns_qnames
@@ -24,6 +22,8 @@ class MainControl:
         self.tap_control = None
         self.sys_hper = SysHelper()
         self.running = False
+        self.main_thread = None
+        self.stop_thread = None
         # callbacks
         self.connect_cb = None
         self.tuntapset_cb = None
@@ -91,23 +91,6 @@ class MainControl:
         self.rx_total_init = 0
         self.tx_total_init = 0
 
-    def query_traffic_remain(self, server_ip, server_port, username, secret):
-        secret = secret.encode('utf-8')
-        cipher = Chacha20Cipher(secret)
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        identification_raw = username.encode('utf-8')
-        identification = hashlib.sha256(identification_raw).digest()
-        send_data = b'\x02' + identification
-        sock.sendto(cipher.encrypt(send_data), (server_ip, server_port))
-        try:
-            sock.settimeout(5)
-            data, _ = sock.recvfrom(2048)
-            data = cipher.decrypt(data)
-            traffic_remain = int.from_bytes(data[1:5], 'big')
-            return traffic_remain
-        except Exception:
-            return None
-
     def run(self, server_ip, server_port, username, secret):
         LOGGER.debug("MainControl run")
         self.server_ip = server_ip
@@ -170,6 +153,9 @@ class MainControl:
 
     def client_handshake_cb(self, gateway_ip, interface_ip):
         LOGGER.debug("MainControl client_handshake_cb")
+        if gateway_ip is None or interface_ip is None:
+            self.stop()
+            return
         if self.connect_cb is not None:
             self.connect_cb()
         ipv4_addr = list(interface_ip)
@@ -210,6 +196,7 @@ class MainControl:
             LOGGER.debug("MainControl read dns packet")
             qnames = get_dns_qnames(data)
             for qname in qnames:
+                LOGGER.info("MainControl dns query: %s" % qname)
                 if self.filter.match_domain(qname.decode()):
                     LOGGER.info("DNSServer domain matched: %s" % qname)
                     self.dns_server.resolve(data)

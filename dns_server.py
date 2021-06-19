@@ -13,6 +13,7 @@ class DNSServer:
         self.callback = packet_callback
         self.packet_queue = Queue()
         self.running = False
+        self.packet_thread = None
 
     def run(self):
         LOGGER.debug("DNSServer run")
@@ -21,7 +22,7 @@ class DNSServer:
         self.packet_thread.start()
 
     def stop(self):
-        LOGGER.debug("DNSServer stop")
+        LOGGER.info("DNSServer stop")
         self.running = False
         if self.packet_thread is not None:
             while self.packet_thread.is_alive():

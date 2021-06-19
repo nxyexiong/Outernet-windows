@@ -22,6 +22,9 @@ class Client:
         self.cipher = Chacha20Cipher(secret)
         self.identification = identification
         self.running = False
+        self.handshake_thread = None
+        self.recv_thread = None
+        self.traffic_thread = None
         # traffic
         traffic = load_traffic()
         self.rx_rate = 0
@@ -50,7 +53,7 @@ class Client:
         self.traffic_thread.start()
 
     def stop(self):
-        LOGGER.debug("Client stop")
+        LOGGER.info("Client stop")
         self.running = False
         if self.handshake_thread is not None:
             while self.handshake_thread.is_alive():
@@ -72,10 +75,15 @@ class Client:
     def handle_handshake(self):
         LOGGER.debug("Client handle_handshake")
         send_data = b'\x01' + self.identification
+        handshake_retry_cnt = 5
         while self.running:
+            if handshake_retry_cnt <= 0:
+                self.handshake_cb(None, None)
+                break
+            handshake_retry_cnt -= 1
             self.sock.sendto(self.wrap_data(send_data), self.server_addr)
             try:
-                self.sock.settimeout(5)
+                self.sock.settimeout(2)
                 data, _ = self.sock.recvfrom(2048)
                 self.sock.settimeout(None)
             except socket.timeout:
@@ -120,6 +128,7 @@ class Client:
                 traffic = {}
                 traffic['rx'] = self.rx_total
                 traffic['tx'] = self.tx_total
+                LOGGER.info("Client saving traffic rx: %d, tx: %d" % (self.rx_total, self.tx_total))
                 save_traffic(traffic)
 
             time.sleep(1)

@@ -95,6 +95,7 @@ def open_tun_tap(ipv4_addr, ipv4_network, ipv4_netmask):
 
 
 def close_tun_tap(tuntap):
+    LOGGER.info("close_tun_tap")
     win32file.CloseHandle(tuntap)
 
 
@@ -115,6 +116,8 @@ class TAPControl:
         self.write_queue = Queue()
         self.timeout = 100  # 0.1s
         self.goOn = False
+        self.read_thread = None
+        self.write_thread = None
 
     def run(self):
         LOGGER.debug("TAPControl run")
@@ -190,9 +193,11 @@ class TAPControl:
                 continue
 
     def close(self):
-        LOGGER.debug("TAPControl close")
+        LOGGER.info("TAPControl close")
         self.goOn = False
-        while self.read_thread.is_alive():
-            time.sleep(0.1)
-        while self.write_thread.is_alive():
-            time.sleep(0.1)
+        if self.read_thread is not None:
+            while self.read_thread.is_alive():
+                time.sleep(0.1)
+        if self.write_thread is not None:
+            while self.write_thread.is_alive():
+                time.sleep(0.1)

@@ -1,18 +1,23 @@
 import sys
 import ctypes
 import time
+import traceback
 
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PyQt5.QtCore import Qt, QTimer, QUrl
+from PyQt5.QtGui import QIcon, QCursor, QDesktopServices
+from PyQt5.QtWidgets import (qApp, QApplication, QMainWindow, QWidget,
+                             QPushButton, QLabel, QLineEdit, QMessageBox,
+                             QSystemTrayIcon, QMenu, QAction, QGraphicsDropShadowEffect)
 from filter_window import FilterWindow
 from main import MainControl
 from sys_helper import SysHelper
 from iface_helper import get_tap_iface
 from config_helper import load_config, save_config
+from logger import LOGGER
 
 
-VERSION_CODE = '2.13'
+VERSION_CODE = '3.0'
+MAIN_DOMAIN = 'm.nxyexiong.xyz'
 STYLE_SHEET = '''
 #MainWidget{
     background-color: #312F30;
@@ -138,13 +143,13 @@ class FrontWindow(QMainWindow):
         shadow.setColor(Qt.black)
         self.mainWidget.setGraphicsEffect(shadow)
 
-        closeBtn = QPushButton('',self)
+        closeBtn = QPushButton('', self)
         closeBtn.resize(10, 10)
         closeBtn.clicked.connect(self.onClose)
         closeBtn.setObjectName('CloseButton')
         closeBtn.move(14, 14)
 
-        minBtn = QPushButton('',self)
+        minBtn = QPushButton('', self)
         minBtn.resize(10, 10)
         minBtn.clicked.connect(self.hide)
         minBtn.setObjectName('MinButton')
@@ -153,7 +158,7 @@ class FrontWindow(QMainWindow):
         titleLabel = QLabel('Outernet - %s' % (VERSION_CODE,), self)
         titleLabel.setObjectName('TitleLabel')
         titleLabel.adjustSize()
-        titleLabel.move(350 / 2 - titleLabel.width() / 2, 14)#127
+        titleLabel.move(350 / 2 - titleLabel.width() / 2, 14)  # 127
 
         addrLabel = QLabel('Server address', self)
         addrLabel.resize(112, 20)
@@ -241,14 +246,20 @@ class FrontWindow(QMainWindow):
 
         self.toggleConnectBtn = QPushButton("Connect", self)
         self.toggleConnectBtn.clicked.connect(self.toggleConnect)
-        self.toggleConnectBtn.resize(260, 25)
+        self.toggleConnectBtn.resize(230, 25)
         self.toggleConnectBtn.move(29, 278)
 
         self.toggleFilterBtn = QPushButton(self)
         self.toggleFilterBtn.setIcon(QIcon('res/filter.png'))
         self.toggleFilterBtn.clicked.connect(self.toggleFilter)
         self.toggleFilterBtn.resize(25, 25)
-        self.toggleFilterBtn.move(294, 278)
+        self.toggleFilterBtn.move(264, 278)
+
+        self.viewMainPageBtn = QPushButton(self)
+        self.viewMainPageBtn.setIcon(QIcon('res/home.png'))
+        self.viewMainPageBtn.clicked.connect(self.handleViewMainPage)
+        self.viewMainPageBtn.resize(25, 25)
+        self.viewMainPageBtn.move(294, 278)
 
         # set traffic timer
         self.trafficTimer = QTimer()
@@ -281,13 +292,13 @@ class FrontWindow(QMainWindow):
         self.tray.activated.connect(self.trayEvent)
         self.trayMenu = QMenu(QApplication.desktop())
         self.RestoreAction = QAction('Open', self, triggered=self.show)
-        self.QueryTrafficAction = QAction('Query traffic remain', self, triggered=self.handleQueryTraffic)
         self.ClearTrafficAction = QAction('Clear traffic info', self, triggered=self.handleClearTraffic)
+        self.ViewMainPageAction = QAction('View main page', self, triggered=self.handleViewMainPage)
         self.FixAction = QAction('Fix', self, triggered=self.handleFix)
         self.QuitAction = QAction('Quit', self, triggered=self.onClose)
         self.trayMenu.addAction(self.RestoreAction)
-        self.trayMenu.addAction(self.QueryTrafficAction)
         self.trayMenu.addAction(self.ClearTrafficAction)
+        self.trayMenu.addAction(self.ViewMainPageAction)
         self.trayMenu.addAction(self.FixAction)
         self.trayMenu.addAction(self.QuitAction)
         self.tray.setContextMenu(self.trayMenu)
@@ -366,26 +377,10 @@ class FrontWindow(QMainWindow):
     def handleClearTraffic(self):
         self.mainControl.clear_traffic()
 
-    def handleQueryTraffic(self):
-        server_ip = self.addrEdit.text()
-        server_port = self.portEdit.text()
-        username = self.userEdit.text()
-        secret = self.secretEdit.text()
-        try:
-            server_port = int(server_port)
-        except Exception:
-            return
-        traffic = self.mainControl.query_traffic_remain(server_ip, server_port, username, secret)
-        if traffic is not None:
-            msg = "Traffic remain: %d MB" % (traffic,)
-            self.show()
-            QMessageBox.information(self, "info", msg)
-        else:
-            msg = "Query timeout or your client version is too low"
-            self.show()
-            QMessageBox.warning(self, "warning", msg)
+    def handleViewMainPage(self):
+        QDesktopServices.openUrl(QUrl("http://%s" % MAIN_DOMAIN))
 
-    ################## MainControl callbacks ##################
+    # ==================== MainControl callbacks ====================
 
     def mainConnectCallback(self):
         self.connected = True
@@ -410,12 +405,12 @@ class FrontWindow(QMainWindow):
         self.connected = False
         self.tray.setToolTip(self.getTooltips())
 
-    ################## Override ##################
+    # ==================== Override ====================
 
     def mousePressEvent(self, event):
-        if event.button()==Qt.LeftButton:
-            self.m_drag=True
-            self.m_DragPosition=event.globalPos()-self.pos()
+        if event.button() == Qt.LeftButton:
+            self.m_drag = True
+            self.m_DragPosition = event.globalPos() - self.pos()
             event.accept()
             self.setCursor(QCursor(Qt.OpenHandCursor))
 
@@ -423,11 +418,11 @@ class FrontWindow(QMainWindow):
         if Qt.LeftButton and self.m_drag:
             if not self.m_DragPosition:
                 return
-            self.move(QMouseEvent.globalPos()-self.m_DragPosition)
+            self.move(QMouseEvent.globalPos() - self.m_DragPosition)
             QMouseEvent.accept()
 
     def mouseReleaseEvent(self, QMouseEvent):
-        self.m_drag=False
+        self.m_drag = False
         self.setCursor(QCursor(Qt.ArrowCursor))
 
     def closeEvent(self, event):
@@ -437,27 +432,32 @@ class FrontWindow(QMainWindow):
 MAIN_WINDOW = None
 
 if __name__ == '__main__':
-    sys.stderr = open('error.log', 'w+')
+    try:
+        sys.stderr = open('error.log', 'w+')
+        LOGGER.info("start app, version: %s" % VERSION_CODE)
+        app = QApplication(sys.argv)
 
-    app = QApplication(sys.argv)
+        # check privilige
+        if not ctypes.windll.shell32.IsUserAnAdmin():
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("Please run as administrator!")
+            msg.setWindowTitle("Error")
+            sys.exit(msg.exec_())
 
-    # check privilige
-    if not ctypes.windll.shell32.IsUserAnAdmin():
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Critical)
-        msg.setText("Please run as administrator!")
-        msg.setWindowTitle("Error")
-        sys.exit(msg.exec_())
+        # check tap
+        while not get_tap_iface():
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setText("First time running requires an installation of TAP driver")
+            msg.setWindowTitle("Info")
+            msg.exec_()
+            SysHelper.install_tap()
+            time.sleep(1)
 
-    # check tap
-    while not get_tap_iface():
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Information)
-        msg.setText("First time running requires an installation of TAP driver")
-        msg.setWindowTitle("Info")
-        msg.exec_()
-        SysHelper.install_tap()
-        time.sleep(1)
-
-    MAIN_WINDOW = FrontWindow()
-    sys.exit(app.exec_())
+        MAIN_WINDOW = FrontWindow()
+        sys.exit(app.exec_())
+    except Exception as err:
+        LOGGER.error(err)
+        LOGGER.error(traceback.format_exc())
+        exit(1)
