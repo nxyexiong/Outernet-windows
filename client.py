@@ -5,6 +5,8 @@ import time
 
 from cipher import Chacha20Cipher
 from config_helper import load_traffic, save_traffic
+from protocol import (Protocol, CMD_CLIENT_HANDSHAKE, CMD_SERVER_HANDSHAKE,
+                      CMD_CLIENT_DATA, CMD_SERVER_DATA)
 from logger import LOGGER
 
 TRAFFIC_SAVE_INTERVAL = 60
@@ -68,20 +70,28 @@ class Client:
 
     def send(self, data):
         LOGGER.debug("Client send data: %s" % data)
-        send_data = self.wrap_data(data)
+        protocol = Protocol()
+        protocol.cmd = CMD_CLIENT_DATA
+        protocol.identification = self.identification
+        protocol.data = data
+        send_data = self.wrap_data(protocol.get_bytes())
         self.tx_tmp += len(send_data)
         self.sock.sendto(send_data, self.server_addr)
 
     def handle_handshake(self):
         LOGGER.debug("Client handle_handshake")
-        send_data = b'\x01' + self.identification
+        protocol = Protocol()
+        protocol.cmd = CMD_CLIENT_HANDSHAKE
+        protocol.identification = self.identification
+        send_data = self.wrap_data(protocol.get_bytes())
         handshake_retry_cnt = 5
         while self.running:
             if handshake_retry_cnt <= 0:
                 self.handshake_cb(None, None)
                 break
             handshake_retry_cnt -= 1
-            self.sock.sendto(self.wrap_data(send_data), self.server_addr)
+            self.tx_tmp += len(send_data)
+            self.sock.sendto(send_data, self.server_addr)
             try:
                 self.sock.settimeout(2)
                 data, _ = self.sock.recvfrom(2048)
@@ -89,15 +99,13 @@ class Client:
             except socket.timeout:
                 LOGGER.warning("Client handshake timeout")
                 continue
+            self.rx_tmp += len(data)
             data = self.unwrap_data(data)
-            if len(data) != 11 or data[0] != 0x01:
+            protocol = Protocol()
+            if protocol.parse(data) <= 1 or protocol.cmd != CMD_SERVER_HANDSHAKE:
                 continue
             LOGGER.debug("Client handshake recved")
-            tun_ip_raw = data[1:5]
-            dst_ip_raw = data[5:9]
-            port = data[9] * 256 + data[10]
-            self.server_addr = (self.server_addr[0], port)
-            self.handshake_cb(tun_ip_raw, dst_ip_raw)
+            self.handshake_cb(protocol.tun_ip_raw, protocol.dst_ip_raw)
             self.start_vpn()
             break
 
@@ -108,10 +116,13 @@ class Client:
             if not readable:
                 continue
             data, _ = self.sock.recvfrom(2048)
-            data = self.unwrap_data(data)
-            LOGGER.debug("Client recv data: %s" % data)
             self.rx_tmp += len(data)
-            self.recv_cb(data)
+            data = self.unwrap_data(data)
+            protocol = Protocol()
+            if protocol.parse(data) <= 1 or protocol.cmd != CMD_SERVER_DATA:
+                continue
+            LOGGER.debug("Client recv data: %s" % protocol.data)
+            self.recv_cb(protocol.data)
 
     def handle_traffic(self):
         LOGGER.debug("Client handle_traffic")
@@ -150,9 +161,7 @@ class Client:
         save_traffic(traffic)
 
     def wrap_data(self, data):
-        data = self.cipher.encrypt(data)
-        return data
+        return self.cipher.encrypt(data)
 
     def unwrap_data(self, data):
-        data = self.cipher.decrypt(data)
-        return data
+        return self.cipher.decrypt(data)

@@ -16,7 +16,7 @@ from config_helper import load_config, save_config
 from logger import LOGGER
 
 
-VERSION_CODE = '3.0'
+VERSION_CODE = '4.0'
 MAIN_DOMAIN = 'm.nxyexiong.xyz'
 STYLE_SHEET = '''
 #MainWidget{
